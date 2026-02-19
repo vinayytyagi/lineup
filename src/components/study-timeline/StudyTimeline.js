@@ -117,21 +117,6 @@ function ChevronUpIcon({ className }) {
   );
 }
 
-function LineupLogo({ className }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className={cx("h-6 w-6", className)}
-      fill="none"
-    >
-      <rect x="3" y="5" width="18" height="4" rx="2" fill="var(--accent)" />
-      <rect x="3" y="10" width="12" height="4" rx="2" fill="var(--accent)" opacity="0.85" />
-      <rect x="3" y="15" width="16" height="4" rx="2" fill="var(--accent)" opacity="0.7" />
-    </svg>
-  );
-}
-
 function makeRangeAround(dayKey, pastDays, futureDays) {
   const out = [];
   for (let i = -pastDays; i <= futureDays; i++) {
@@ -432,8 +417,9 @@ function TimelineHeader({
     <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-(--background)/80 backdrop-blur">
       <div className="flex w-full items-center justify-between px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-(--card) shadow-sm ring-1 ring-slate-200">
-            <LineupLogo />
+          <div className="flex h-14 items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/Lineup.png" alt="Lineup" className="h-20 w-auto object-contain" />
           </div>
           <div className="flex flex-col">
             <h1 className="text-lg font-semibold tracking-tight text-[color:var(--foreground)]">
@@ -1755,13 +1741,7 @@ export default function StudyTimeline({ viewAsUserId = null, readOnly = false } 
     try {
       const saved = localStorage.getItem("lineup-theme");
       if (saved === "dark" || saved === "light") setTheme(saved);
-      else {
-        const prefersDark =
-          typeof window !== "undefined" &&
-          window.matchMedia &&
-          window.matchMedia("(prefers-color-scheme: dark)").matches;
-        setTheme(prefersDark ? "dark" : "light");
-      }
+      else setTheme("light");
     } catch {
       // ignore
     }
