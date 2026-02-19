@@ -75,8 +75,8 @@ export default function AdminPage() {
 
   if (stage === "checking") {
     return (
-      <div className="min-h-screen bg-background px-6 py-10 text-[color:var(--foreground)]">
-        <div className="mx-auto max-w-3xl rounded-3xl bg-(--card) p-6 ring-1 ring-slate-200">
+      <div className="min-h-screen bg-background px-4 py-8 sm:px-6 sm:py-10 text-[color:var(--foreground)]">
+        <div className="mx-auto max-w-3xl rounded-2xl bg-(--card) p-4 ring-1 ring-slate-200 sm:rounded-3xl sm:p-6">
           <div className="text-base font-semibold">Admin</div>
           <div className="mt-2 text-sm text-[color:var(--muted)]">Loading…</div>
         </div>
@@ -86,8 +86,8 @@ export default function AdminPage() {
 
   if (stage === "login") {
     return (
-      <div className="min-h-screen bg-background px-6 py-10 text-[color:var(--foreground)]">
-        <div className="mx-auto max-w-md rounded-3xl bg-(--card) p-6 ring-1 ring-slate-200">
+      <div className="min-h-screen bg-background px-4 py-8 sm:px-6 sm:py-10 text-[color:var(--foreground)]">
+        <div className="mx-auto max-w-md rounded-2xl bg-(--card) p-4 ring-1 ring-slate-200 sm:rounded-3xl sm:p-6">
           <div className="text-base font-semibold">Admin Panel</div>
           <div className="mt-2 text-sm text-[color:var(--muted)]">
             Enter admin password to view users and lineups.
@@ -145,9 +145,9 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-background text-[color:var(--foreground)]">
-      <div className="flex h-screen">
-        <aside className="w-[320px] shrink-0 border-r border-[color:var(--border)] bg-(--card)">
-          <div className="p-4">
+      <div className="flex h-screen flex-col overflow-hidden lg:flex-row">
+        <aside className="custom-scrollbar flex-shrink-0 overflow-y-auto border-b border-[color:var(--border)] bg-(--card) lg:w-[280px] lg:border-b-0 lg:border-r xl:w-[320px]">
+          <div className="p-3 sm:p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-base font-semibold">Admin Panel</div>
@@ -172,7 +172,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="px-3 pb-3">
+          <div className="custom-scrollbar max-h-[40vh] overflow-y-auto px-2 pb-3 sm:max-h-none lg:px-3">
             {users.map((u) => (
               <button
                 key={u.userId}
@@ -202,9 +202,9 @@ export default function AdminPage() {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1">
-          <div className="border-b border-[color:var(--border)] px-6 py-4">
-            <div className="flex items-center justify-between gap-4">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="flex-shrink-0 border-b border-[color:var(--border)] px-4 py-3 sm:px-6 sm:py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="text-base font-semibold">
                   {selectedUser ? selectedUser.name || selectedUser.email : "—"}
@@ -213,7 +213,7 @@ export default function AdminPage() {
                   {selectedUser ? selectedUser.email : ""}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setTab("profile")}
@@ -239,7 +239,7 @@ export default function AdminPage() {
           </div>
 
           {error ? (
-            <div className="px-6 pt-4">
+            <div className="px-4 pt-3 sm:px-6 sm:pt-4">
               <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-100">
                 {error}
               </div>
@@ -247,23 +247,23 @@ export default function AdminPage() {
           ) : null}
 
           {tab === "profile" ? (
-            <div className="px-6 py-6">
-              <div className="max-w-2xl rounded-3xl bg-(--card) p-6 ring-1 ring-slate-200">
+            <div className="custom-scrollbar overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+              <div className="max-w-2xl rounded-2xl bg-(--card) p-4 ring-1 ring-slate-200 sm:rounded-3xl sm:p-6">
                 <div className="text-sm font-semibold">Profile</div>
                 <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-[color:var(--muted)]">Name</span>
-                    <span className="font-medium">{selectedUser?.name || "—"}</span>
+                    <span className="truncate font-medium">{selectedUser?.name || "—"}</span>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-[color:var(--muted)]">Email</span>
-                    <span className="font-medium">{selectedUser?.email || "—"}</span>
+                    <span className="truncate font-medium">{selectedUser?.email || "—"}</span>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-[color:var(--muted)]">Role</span>
                     <span className="font-medium">{selectedUser?.role || "user"}</span>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-[color:var(--muted)]">Created</span>
                     <span className="font-medium">{selectedUser?.createdAt || "—"}</span>
                   </div>
@@ -271,7 +271,7 @@ export default function AdminPage() {
               </div>
             </div>
           ) : (
-            <div className="h-[calc(100vh-73px)]">
+            <div className="min-h-0 flex-1 overflow-hidden">
               {selectedId ? (
                 <StudyTimeline viewAsUserId={selectedId} readOnly />
               ) : null}

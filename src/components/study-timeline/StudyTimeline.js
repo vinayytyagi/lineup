@@ -11,10 +11,6 @@ import {
 } from "@/lib/date";
 import { formatMinutes } from "@/lib/time";
 
-const DATE_COL_W = 200;
-const CARD_W = 300;
-const CARD_H = 280;
-const VIDEO_THUMB_H = 168;
 const INITIAL_PAST_DAYS = 5;
 const INITIAL_FUTURE_DAYS = 5;
 const PAGE_SIZE_DAYS = 10;
@@ -415,22 +411,22 @@ function TimelineHeader({
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-(--background)/80 backdrop-blur">
-      <div className="flex w-full items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-14 items-center justify-center">
+      <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 sm:flex-initial">
+          <div className="flex h-10 shrink-0 items-center justify-center sm:h-14">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/Lineup.png" alt="Lineup" className="h-20 w-auto object-contain" />
+            <img src="/Lineup.png" alt="Lineup" className="h-8 w-auto object-contain sm:h-12" />
           </div>
-          <div className="flex flex-col">
-            <h1 className="text-lg font-semibold tracking-tight text-[color:var(--foreground)]">
+          <div className="min-w-0 flex flex-col">
+            <h1 className="truncate text-base font-semibold tracking-tight text-[color:var(--foreground)] sm:text-lg">
               Lineup
             </h1>
-          <p className="text-sm text-[color:var(--muted)]">
-            Tasks grouped by date.
-          </p>
+            <p className="hidden text-sm text-[color:var(--muted)] sm:block">
+              Tasks grouped by date.
+            </p>
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <div className="hidden items-center gap-2 rounded-full bg-(--card) px-3 py-2 text-sm ring-1 ring-slate-200 md:flex">
             <SearchIcon className="text-[color:var(--muted)]" />
             <input
@@ -456,7 +452,7 @@ function TimelineHeader({
                 }
               }}
               placeholder="Search tasks…"
-              className="w-[260px] bg-transparent text-sm text-[color:var(--foreground)] outline-none placeholder:text-slate-400"
+              className="w-40 min-w-0 bg-transparent text-sm text-[color:var(--foreground)] outline-none placeholder:text-slate-400 sm:w-[260px]"
             />
 
             {searchQuery.trim().length ? (
@@ -1023,17 +1019,23 @@ function VideoPlayerModal({ open, videoUrl, title, onClose }) {
   );
 }
 
+const CARD_SIZE_CLASS =
+  "w-[140px] h-[160px] sm:w-[200px] sm:h-[220px] md:w-[180px] md:h-[188px] lg:w-[192px] lg:h-[182px]";
+const VIDEO_THUMB_CLASS = "h-[84px] sm:h-[120px] md:h-[100px] lg:h-[108px]";
+
 function VideoCard({ task, onOpenNotes, onPlay }) {
   const completeLabel = formatMinutes(task.timeToComplete);
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl bg-(--card) shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
+      className={cx(
+        "relative flex shrink-0 flex-col overflow-hidden rounded-2xl bg-(--card) shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md",
+        CARD_SIZE_CLASS,
+      )}
       onClick={(e) => e.stopPropagation()}
       role="group"
-      style={{ width: CARD_W, height: CARD_H }}
     >
-      <div className="relative w-full bg-slate-100" style={{ height: VIDEO_THUMB_H }}>
+      <div className={cx("relative shrink-0 w-full overflow-hidden bg-slate-100", VIDEO_THUMB_CLASS)}>
         {task.thumbnailUrl ? (
           <Image
             src={task.thumbnailUrl}
@@ -1055,24 +1057,24 @@ function VideoCard({ task, onOpenNotes, onPlay }) {
           aria-label="Play"
           title="Play"
         >
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm ring-1 ring-white/60">
-            <PlayIcon className="h-6 w-6 translate-x-[1px]" />
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-sm ring-1 ring-white/60 sm:h-12 sm:w-12">
+            <PlayIcon className="h-4 w-4 translate-x-px sm:h-6 sm:w-6" />
           </span>
         </button>
       </div>
-      <div className="p-4">
+      <div className="flex min-h-0 flex-1 flex-col justify-between px-2 pb-2.5 pt-1.5 sm:px-3 sm:pb-3 sm:pt-2">
         <a
           href={task.videoUrl}
           target="_blank"
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="line-clamp-2 cursor-pointer text-sm font-semibold leading-5 text-[color:var(--foreground)] hover:text-blue-600"
+          className="line-clamp-2 cursor-pointer text-[11px] font-semibold leading-tight text-[color:var(--foreground)] hover:text-blue-600 sm:text-xs"
           title={task.title || ""}
         >
           {task.title || "Untitled video"}
         </a>
 
-        <div className="mt-2 flex items-center justify-between gap-3 text-xs text-[color:var(--muted)]">
+        <div className="mt-1 flex shrink-0 items-center justify-between gap-1.5 text-[10px] text-[color:var(--muted)] sm:mt-1.5 sm:gap-2 sm:text-[11px]">
           <div className="min-w-0">
             <span className="font-medium text-[color:var(--muted)]">
               {task.videoDuration || "—"}
@@ -1107,19 +1109,21 @@ function NoteCard({ task, onOpen }) {
   return (
     <button
       type="button"
-      className="cursor-pointer rounded-2xl bg-(--card) p-4 text-left shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
-      style={{ width: CARD_W, height: CARD_H }}
+      className={cx(
+        "flex shrink-0 cursor-pointer flex-col justify-between rounded-2xl bg-(--card) px-3 pb-2.5 pt-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md sm:px-4 sm:pb-3 sm:pt-4",
+        CARD_SIZE_CLASS,
+      )}
       onClick={(e) => {
         e.stopPropagation();
         onOpen();
       }}
     >
-      <div className="rounded-xl border-l-4 border-blue-500/50 pl-3">
-        <div className="line-clamp-4 text-sm leading-6 text-[color:var(--foreground)]">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border-l-4 border-blue-500/50 pl-2 sm:pl-3">
+        <div className="line-clamp-3 text-[11px] leading-4.5 text-[color:var(--foreground)] sm:line-clamp-4 sm:text-xs sm:leading-5">
           {task.notes || "—"}
         </div>
       </div>
-      <div className="mt-3 text-xs font-medium text-[color:var(--muted)]">
+      <div className="mt-2 shrink-0 text-[10px] font-medium text-[color:var(--muted)] sm:text-[11px]">
         {completeLabel}
       </div>
     </button>
@@ -1134,14 +1138,16 @@ function AddCard({ onAdd }) {
         e.stopPropagation();
         onAdd();
       }}
-      className="group/add flex cursor-pointer items-center justify-center rounded-2xl bg-(--row-hover) text-blue-700 ring-1 ring-blue-100 transition hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-sm"
-      style={{ width: CARD_W, height: CARD_H }}
+      className={cx(
+        "group/add flex shrink-0 cursor-pointer items-center justify-center rounded-2xl bg-(--row-hover) text-blue-700 ring-1 ring-blue-100 transition hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-sm",
+        CARD_SIZE_CLASS,
+      )}
     >
       <div className="flex flex-col items-center gap-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-(--card) text-blue-600 ring-1 ring-blue-100 transition group-hover/add:scale-105">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-(--card) text-blue-600 ring-1 ring-blue-100 transition group-hover/add:scale-105 sm:h-10 sm:w-10">
           <PlusIcon />
         </div>
-        <div className="text-sm font-semibold">Add</div>
+        <div className="text-xs font-semibold sm:text-sm">Add</div>
       </div>
     </button>
   );
@@ -1245,16 +1251,15 @@ function DateRow({
       id={`day-${dayKey}`}
       className="group w-full border-b border-[color:var(--border)]"
     >
-      <div className="flex px-6">
+      <div className="flex px-4 sm:px-6">
         <div
           className={cx(
-            "relative flex shrink-0 items-center",
+            "relative flex w-14 shrink-0 items-center sm:w-28 md:w-36 lg:w-[200px]",
           )}
-          style={{ width: DATE_COL_W }}
         >
           <div
             className={cx(
-              "w-full rounded-2xl px-4 py-3",
+              "w-full rounded-2xl px-4 py-2 sm:py-3",
               isToday
                 ? "bg-(--today-bg) ring-1 ring-[color:var(--today-ring)]"
                 : "bg-transparent",
@@ -1266,10 +1271,10 @@ function DateRow({
 
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
-                <div className="text-base font-semibold text-[color:var(--foreground)]">
+                <div className="text-sm font-semibold text-[color:var(--foreground)] sm:text-base">
                   {formatDayLabel(dayKey)}
                 </div>
-                <div className="text-sm text-[color:var(--muted)]">
+                <div className="text-xs text-[color:var(--muted)] sm:text-sm">
                   {formatWeekdayLabel(dayKey)}
                 </div>
               </div>
@@ -1283,7 +1288,7 @@ function DateRow({
         <div className="relative min-w-0 flex-1">
           <div
             className={cx(
-              "relative rounded-2xl px-4 py-4 transition"
+              "relative rounded-2xl px-4 py-2 transition sm:py-3"
             )}
           >
             <div
@@ -1351,8 +1356,7 @@ function DateRow({
                   >
                     {dragOver?.dayKey === dayKey && dragOver.index === idx ? (
                       <div
-                        className="pointer-events-none absolute -left-3 top-0 w-1 rounded-full bg-blue-500/70"
-                        style={{ height: CARD_H }}
+                        className="pointer-events-none absolute -left-3 top-0 h-[160px] w-1 rounded-full bg-blue-500/70 sm:h-[220px] md:h-[188px] lg:h-[182px]"
                       />
                     ) : null}
                   <button
@@ -1400,7 +1404,7 @@ function DateRow({
               })}
 
               {dragOver?.dayKey === dayKey && dragOver.index === sortedTasks.length ? (
-                <div className="w-1 rounded-full bg-blue-500/70" style={{ height: CARD_H }} />
+                <div className="h-[160px] w-1 shrink-0 rounded-full bg-blue-500/70 sm:h-[220px] md:h-[188px] lg:h-[182px]" />
               ) : null}
   
               {!readOnly ? (
@@ -2282,7 +2286,8 @@ export default function StudyTimeline({ viewAsUserId = null, readOnly = false } 
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      <div className="shrink-0">
       <TimelineHeader
         onToday={scrollToToday}
         onJumpToDayKey={ensureAndScrollToDayKey}
@@ -2314,15 +2319,16 @@ export default function StudyTimeline({ viewAsUserId = null, readOnly = false } 
           }
         }}
       />
+      </div>
 
       <div
         ref={scrollerRef}
-        className="no-scrollbar h-[calc(100vh-72px)] overflow-y-auto"
+        className="custom-scrollbar min-h-0 flex-1 overflow-y-auto"
       >
         <div ref={topSentinelRef} className="h-1" />
 
         {fetchError ? (
-          <div className="mx-auto max-w-6xl px-6 pt-4">
+          <div className="mx-auto max-w-6xl px-4 pt-4 sm:px-6">
             <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-100">
               {fetchError}
             </div>
