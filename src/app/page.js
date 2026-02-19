@@ -1,7 +1,10 @@
-"use client";
-
 import StudyTimeline from "@/components/study-timeline/StudyTimeline";
 
-export default function Home() {
+export const metadata = {
+  title: "Lineup",
+  description: "Tasks grouped by date — timeline of study tasks",
+};
+
+export default function HomePage() {
   return <StudyTimeline />;
 }

@@ -1024,7 +1024,7 @@ const CARD_SIZE_CLASS =
 const VIDEO_THUMB_CLASS = "h-[84px] sm:h-[120px] md:h-[100px] lg:h-[108px]";
 
 function VideoCard({ task, onOpenNotes, onPlay }) {
-  const completeLabel = formatMinutes(task.timeToComplete);
+  const hasTime = typeof task.timeToComplete === "number" && task.timeToComplete > 0;
 
   return (
     <div
@@ -1079,8 +1079,12 @@ function VideoCard({ task, onOpenNotes, onPlay }) {
             <span className="font-medium text-[color:var(--muted)]">
               {task.videoDuration || "—"}
             </span>
-            <span className="px-2">•</span>
-            <span>{completeLabel}</span>
+            {hasTime ? (
+              <>
+                <span className="px-2">•</span>
+                <span>{formatMinutes(task.timeToComplete)}</span>
+              </>
+            ) : null}
           </div>
 
           {task.notes ? (
@@ -1104,7 +1108,7 @@ function VideoCard({ task, onOpenNotes, onPlay }) {
 }
 
 function NoteCard({ task, onOpen }) {
-  const completeLabel = formatMinutes(task.timeToComplete);
+  const hasTime = typeof task.timeToComplete === "number" && task.timeToComplete > 0;
 
   return (
     <button
@@ -1123,9 +1127,11 @@ function NoteCard({ task, onOpen }) {
           {task.notes || "—"}
         </div>
       </div>
-      <div className="mt-2 shrink-0 text-[10px] font-medium text-[color:var(--muted)] sm:text-[11px]">
-        {completeLabel}
-      </div>
+      {hasTime ? (
+        <div className="mt-2 shrink-0 text-[10px] font-medium text-[color:var(--muted)] sm:text-[11px]">
+          {formatMinutes(task.timeToComplete)}
+        </div>
+      ) : null}
     </button>
   );
 }
@@ -1424,7 +1430,7 @@ function AddTaskModal({ open, dayKey, task, onClose, onSaved, onSaveTask }) {
   const [videoUrl, setVideoUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [timePreset, setTimePreset] = useState(null);
-  const [customMinutes, setCustomMinutes] = useState("");
+  const [customHours, setCustomHours] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -1444,9 +1450,9 @@ function AddTaskModal({ open, dayKey, task, onClose, onSaved, onSaveTask }) {
         ? initialMinutes
         : null,
     );
-    setCustomMinutes(
+    setCustomHours(
       initialMinutes && ![30, 60, 120, 1440].includes(initialMinutes)
-        ? String(initialMinutes)
+        ? String(initialMinutes / 60)
         : "",
     );
   }, [open, dayKey, task]);
@@ -1462,10 +1468,10 @@ function AddTaskModal({ open, dayKey, task, onClose, onSaved, onSaveTask }) {
 
   const resolvedMinutes = useMemo(() => {
     if (timePreset) return timePreset;
-    const n = Number(customMinutes);
-    if (Number.isFinite(n) && Number.isInteger(n) && n > 0) return n;
+    const h = Number(customHours);
+    if (Number.isFinite(h) && h > 0) return Math.round(h * 60);
     return null;
-  }, [timePreset, customMinutes]);
+  }, [timePreset, customHours]);
 
   if (!open) return null;
 
@@ -1478,10 +1484,7 @@ function AddTaskModal({ open, dayKey, task, onClose, onSaved, onSaveTask }) {
     const trimmedVideo = videoUrl.trim();
     const trimmedNotes = notes.trim();
 
-    if (!resolvedMinutes) {
-      setError("Time to complete is required.");
-      return;
-    }
+    // timeToComplete is optional
     if (!trimmedVideo && !trimmedNotes) {
       setError("Add a YouTube link or write a note.");
       return;
@@ -1494,7 +1497,7 @@ function AddTaskModal({ open, dayKey, task, onClose, onSaved, onSaveTask }) {
         taskId: task?._id || null,
         videoUrl: trimmedVideo || null,
         notes: trimmedNotes || null,
-        timeToComplete: resolvedMinutes,
+        timeToComplete: resolvedMinutes ?? null,
       });
       onSaved(saved);
       onClose();
@@ -1571,7 +1574,7 @@ function AddTaskModal({ open, dayKey, task, onClose, onSaved, onSaveTask }) {
           <div>
             <div className="flex items-center justify-between gap-4">
               <label className="text-sm font-medium text-[color:var(--foreground)]">
-                Time to complete (required)
+                Time to complete (optional)
               </label>
               <div className="text-xs text-[color:var(--muted)]">
                 {resolvedMinutes ? `Selected: ${formatMinutes(resolvedMinutes)}` : ""}
@@ -1601,13 +1604,14 @@ function AddTaskModal({ open, dayKey, task, onClose, onSaved, onSaveTask }) {
               })}
               <div className="flex items-center gap-2">
                 <input
-                  value={customMinutes}
+                  value={customHours}
                   onChange={(e) => {
                     setTimePreset(null);
-                    setCustomMinutes(e.target.value.replace(/[^\d]/g, ""));
+                    const v = e.target.value.replace(/[^\d.]/g, "");
+                    if (v === "" || /^\d*\.?\d*$/.test(v)) setCustomHours(v);
                   }}
-                  inputMode="numeric"
-                  placeholder="Custom (min)"
+                  inputMode="decimal"
+                  placeholder="Custom (hr)"
                   className="w-[140px] rounded-full border border-slate-200 bg-(--card) px-3 py-2 text-sm text-[color:var(--foreground)] outline-none ring-blue-200 placeholder:text-slate-400 focus:ring-2"
                 />
               </div>
@@ -1678,9 +1682,11 @@ function NoteViewModal({ open, task, onClose }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-sm font-semibold text-[color:var(--foreground)]">Note</div>
-            <div className="mt-1 text-sm text-[color:var(--muted)]">
-              {formatMinutes(task.timeToComplete)}
-            </div>
+            {typeof task.timeToComplete === "number" && task.timeToComplete > 0 ? (
+              <div className="mt-1 text-sm text-[color:var(--muted)]">
+                {formatMinutes(task.timeToComplete)}
+              </div>
+            ) : null}
           </div>
           <button
             type="button"
@@ -1738,6 +1744,7 @@ export default function StudyTimeline({ viewAsUserId = null, readOnly = false } 
   const loadedSegmentsRef = useRef(new Set());
   const pendingPrependRestoreRef = useRef(null);
   const didCenterTodayRef = useRef(false);
+  const lastViewAsUserIdRef = useRef(viewAsUserId);
   const fetchingRef = useRef(false);
   const refreshedVideoIdsRef = useRef(new Set());
 
@@ -2101,23 +2108,56 @@ export default function StudyTimeline({ viewAsUserId = null, readOnly = false } 
     pendingPrependRestoreRef.current = null;
   }, [dates.length]);
 
-  // Center on today once.
+  // Reset centering when switching users (e.g. admin panel lineup view).
+  useEffect(() => {
+    if (lastViewAsUserIdRef.current !== viewAsUserId) {
+      lastViewAsUserIdRef.current = viewAsUserId;
+      didCenterTodayRef.current = false;
+    }
+  }, [viewAsUserId]);
+
+  // Center on today once (and when viewAsUserId changes in admin panel).
   useEffect(() => {
     if (didCenterTodayRef.current) return;
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
 
-    const el = document.getElementById(`day-${todayKey}`);
-    if (!el) return;
-
-    requestAnimationFrame(() => {
-      const rowTop = el.offsetTop;
+    const centerToday = () => {
+      const scroller = scrollerRef.current;
+      const el = document.getElementById(`day-${todayKey}`);
+      if (!scroller || !el) return false;
+      const ch = scroller.clientHeight;
+      if (ch <= 0) return false;
+      const elRect = el.getBoundingClientRect();
+      const scRect = scroller.getBoundingClientRect();
+      const rowTopInContent = scroller.scrollTop + (elRect.top - scRect.top);
       const rowH = el.offsetHeight;
-      const containerH = scroller.clientHeight;
-      scroller.scrollTop = Math.max(0, rowTop - containerH / 2 + rowH / 2);
+      const targetScroll = Math.max(0, rowTopInContent - ch / 2 + rowH / 2);
+      scroller.scrollTop = targetScroll;
       didCenterTodayRef.current = true;
-    });
-  }, [todayKey]);
+      return true;
+    };
+
+    const ids = [];
+    for (let i = 0; i <= 8; i++) {
+      ids.push(
+        setTimeout(() => {
+          if (!didCenterTodayRef.current) centerToday();
+        }, [0, 50, 100, 200, 350, 550, 850, 1200, 1500][i]),
+      );
+    }
+
+    const scroller = scrollerRef.current;
+    const ro =
+      scroller &&
+      new ResizeObserver(() => {
+        if (!didCenterTodayRef.current && scroller.clientHeight > 0) centerToday();
+      });
+    if (scroller) ro.observe(scroller);
+
+    return () => {
+      ids.forEach((id) => clearTimeout(id));
+      ro?.disconnect();
+    };
+  }, [todayKey, viewAsUserId]);
 
   // IntersectionObservers for infinite scroll.
   useEffect(() => {
@@ -2286,7 +2326,12 @@ export default function StudyTimeline({ viewAsUserId = null, readOnly = false } 
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
+    <div
+      className={cx(
+        "flex flex-col overflow-hidden bg-background",
+        viewAsUserId ? "h-full min-h-0" : "h-screen",
+      )}
+    >
       <div className="shrink-0">
       <TimelineHeader
         onToday={scrollToToday}

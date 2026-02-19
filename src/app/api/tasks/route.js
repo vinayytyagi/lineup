@@ -87,7 +87,11 @@ export async function POST(request) {
     const scheduledDate = body?.scheduledDate;
     const videoUrl = normalizeOptionalString(body?.videoUrl);
     const notes = normalizeOptionalString(body?.notes);
-    const timeToComplete = Number(body?.timeToComplete);
+    const rawTime = body?.timeToComplete;
+    const timeToComplete =
+      rawTime === undefined || rawTime === null
+        ? null
+        : Number(rawTime);
 
     if (!isValidScheduledIso(scheduledDate)) {
       return jsonError(
@@ -95,11 +99,13 @@ export async function POST(request) {
       );
     }
 
-    if (!Number.isInteger(timeToComplete) || timeToComplete <= 0) {
-      return jsonError("`timeToComplete` must be a positive integer (minutes)");
-    }
-    if (timeToComplete > 7 * 24 * 60) {
-      return jsonError("`timeToComplete` is too large");
+    if (timeToComplete != null) {
+      if (!Number.isInteger(timeToComplete) || timeToComplete <= 0) {
+        return jsonError("`timeToComplete` must be a positive integer (minutes)");
+      }
+      if (timeToComplete > 7 * 24 * 60) {
+        return jsonError("`timeToComplete` is too large");
+      }
     }
 
     if (!videoUrl && !notes) {
