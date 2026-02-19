@@ -1,6 +1,17 @@
+# Lineup
+
+Lineup is a timeline UI to plan tasks per day (video + notes), with infinite scrolling around Today.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started
+
+### Environment
+
+Create `.env.local` (you can copy `.env.example`) and set:
+
+- `MONGODB_URI`
+- `MONGODB_DB` (optional, defaults to `lineup`)
 
 First, run the development server:
 
