@@ -16,8 +16,10 @@ function normalizeOptionalString(v, maxLen) {
   return s;
 }
 
-export async function GET() {
-  const user = await requireUser();
+export const dynamic = "force-dynamic";
+
+export async function GET(request) {
+  const user = await requireUser(request);
   if (!user) return jsonError("Unauthorized", 401);
 
   const users = await getUsersCollection();
@@ -38,7 +40,7 @@ export async function GET() {
 }
 
 export async function PATCH(request) {
-  const user = await requireUser();
+  const user = await requireUser(request);
   if (!user) return jsonError("Unauthorized", 401);
 
   const body = await request.json().catch(() => ({}));

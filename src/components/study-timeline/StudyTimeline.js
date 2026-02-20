@@ -144,15 +144,29 @@ function mergeTasksIntoByDay(prev, tasks) {
   return next;
 }
 
+const authTokenRef = { current: null };
+function getAuthHeaders() {
+  const t = authTokenRef.current;
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 async function apiGetTasks(startDayKey, endDayKeyExclusive, viewAsUserId) {
   const start = scheduledIsoFromDayKey(startDayKey);
   const end = scheduledIsoFromDayKey(endDayKeyExclusive);
   const url = viewAsUserId
     ? `/api/admin/users/${encodeURIComponent(viewAsUserId)}/tasks?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`
     : `/api/tasks?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    credentials: "include",
+    cache: "no-store",
+    headers: getAuthHeaders(),
+  });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Failed to fetch tasks");
+  if (!res.ok) {
+    const err = new Error(data?.error || "Failed to fetch tasks");
+    if (res.status === 401) err.unauthorized = true;
+    throw err;
+  }
   return data.tasks || [];
 }
 
@@ -160,21 +174,39 @@ async function apiCreateTask({ dayKey, videoUrl, notes, timeToComplete }) {
   const scheduledDate = scheduledIsoFromDayKey(dayKey);
   const res = await fetch("/api/tasks", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ scheduledDate, videoUrl, notes, timeToComplete }),
+    credentials: "include",
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Failed to create task");
   return data.task;
 }
 
-async function apiUpdateTask(id, { videoUrl, notes, timeToComplete }) {
-  const res = await fetch(`/api/tasks/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ videoUrl, notes, timeToComplete }),
-  });
+async function apiUpdateTask(id, { videoUrl, notes, timeToComplete }, retried = false) {
+  if (!id || typeof id !== "string" || id.startsWith("guest_")) {
+    throw new Error("Invalid task");
+  }
+  const doFetch = () =>
+    fetch(`/api/tasks/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ videoUrl, notes, timeToComplete }),
+      credentials: "include",
+      cache: "no-store",
+    });
+
+  let res = await doFetch();
   const data = await res.json().catch(() => ({}));
+
+  if (res.status === 403 && !retried) {
+    await new Promise((r) => setTimeout(r, 150));
+    res = await doFetch();
+    const retryData = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(retryData?.error || "Failed to update task");
+    return retryData.task;
+  }
+
   if (!res.ok) throw new Error(data?.error || "Failed to update task");
   return data.task;
 }
@@ -182,6 +214,8 @@ async function apiUpdateTask(id, { videoUrl, notes, timeToComplete }) {
 async function apiDeleteTask(id) {
   const res = await fetch(`/api/tasks/${encodeURIComponent(id)}`, {
     method: "DELETE",
+    credentials: "include",
+    headers: getAuthHeaders(),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Failed to delete task");
@@ -191,16 +225,34 @@ async function apiDeleteTask(id) {
 async function apiBulkReorder(updates) {
   const res = await fetch("/api/tasks/reorder", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ updates }),
+    credentials: "include",
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Failed to reorder");
   return true;
 }
 
+async function apiGetTaskCount(viewAsUserId) {
+  const url = viewAsUserId
+    ? `/api/admin/users/${encodeURIComponent(viewAsUserId)}/tasks/count`
+    : "/api/tasks/count";
+  const res = await fetch(url, {
+    credentials: "include",
+    cache: "no-store",
+    headers: getAuthHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return null;
+  return typeof data.count === "number" ? data.count : null;
+}
+
 async function apiAuthMe() {
-  const res = await fetch("/api/auth/me");
+  const res = await fetch("/api/auth/me", {
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) return null;
   return data.user || null;
@@ -211,9 +263,11 @@ async function apiAuthLogin({ email, password }) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email, password }),
+    credentials: "include",
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Login failed");
+  if (data.token) authTokenRef.current = data.token;
   return data.user;
 }
 
@@ -222,14 +276,17 @@ async function apiAuthSignup({ email, password }) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email, password }),
+    credentials: "include",
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Signup failed");
+  if (data.token) authTokenRef.current = data.token;
   return data.user;
 }
 
 async function apiAuthLogout() {
-  await fetch("/api/auth/logout", { method: "POST" });
+  authTokenRef.current = null;
+  await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
 }
 
 async function apiYouTubeMeta(videoUrl) {
@@ -240,7 +297,10 @@ async function apiYouTubeMeta(videoUrl) {
 }
 
 async function apiProfileGet() {
-  const res = await fetch("/api/profile");
+  const res = await fetch("/api/profile", {
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Failed to load profile");
   return data.profile;
@@ -249,8 +309,9 @@ async function apiProfileGet() {
 async function apiProfilePatch({ name, avatarUrl, avatarDataUrl }) {
   const res = await fetch("/api/profile", {
     method: "PATCH",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ name, avatarUrl, avatarDataUrl }),
+    credentials: "include",
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Failed to save profile");
@@ -309,6 +370,25 @@ function XIcon({ className }) {
     >
       <path d="M18 6 6 18" />
       <path d="M6 6l12 12" />
+    </svg>
+  );
+}
+
+function MenuIcon({ className }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={cx("h-5 w-5", className)}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
     </svg>
   );
 }
@@ -398,6 +478,7 @@ function TimelineHeader({
   searchQuery,
   onSearchQueryChange,
   searchCount,
+  totalTasks,
   activeSearchIndex,
   onSearchNext,
   onSearchPrev,
@@ -409,6 +490,8 @@ function TimelineHeader({
   onOpenAuth,
   onOpenProfile,
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-(--background)/80 backdrop-blur">
       <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
@@ -451,7 +534,7 @@ function TimelineHeader({
                   onSearchClear();
                 }
               }}
-              placeholder="Search tasks…"
+              placeholder={totalTasks != null ? `Search out of ${totalTasks} tasks…` : "Search tasks…"}
               className="w-40 min-w-0 bg-transparent text-sm text-[color:var(--foreground)] outline-none placeholder:text-slate-400 sm:w-[260px]"
             />
 
@@ -470,10 +553,8 @@ function TimelineHeader({
             <div className="ml-1 flex items-center gap-1">
               <div className="rounded-full bg-(--card-2) px-2 py-1 text-xs text-[color:var(--muted)]">
                 {searchQuery.trim().length
-                  ? `${searchCount === 1 ? "" : ""}${
-                      searchCount ? `${activeSearchIndex + 1}/${searchCount}` : ""
-                    }`
-                  : "Search"}
+                  ? searchCount ? `${activeSearchIndex + 1}/${searchCount}` : ""
+                  : totalTasks != null ? `Search (${totalTasks})` : "Search"}
               </div>
               <button
                 type="button"
@@ -532,6 +613,11 @@ function TimelineHeader({
             <div className="hidden rounded-full bg-(--card) px-3 py-2 text-sm text-[color:var(--muted)] ring-1 ring-slate-200 sm:flex">
               Read-only
             </div>
+          ) : authMode === "loading" ? (
+            <div className="flex items-center gap-2 rounded-full bg-(--card) px-4 py-2 text-sm text-[color:var(--muted)] ring-1 ring-slate-200">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+              Loading…
+            </div>
           ) : authMode === "guest" ? (
             <>
               <div className="hidden rounded-full bg-(--card) px-3 py-2 text-sm text-[color:var(--muted)] ring-1 ring-slate-200 sm:flex">
@@ -572,6 +658,128 @@ function TimelineHeader({
           >
             {theme === "dark" ? <SunIcon /> : <MoonIcon />}
           </button>
+
+          {/* Mobile menu */}
+          <div className="relative md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((o) => !o)}
+              className="inline-flex cursor-pointer items-center justify-center rounded-full bg-(--card) p-2 text-[color:var(--foreground)] shadow-sm ring-1 ring-slate-200 hover:bg-(--card-2)"
+              aria-label="Menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              <MenuIcon />
+            </button>
+            {mobileMenuOpen ? (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  aria-hidden="true"
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full z-40 mt-2 w-56 rounded-2xl bg-(--card) py-2 shadow-xl ring-1 ring-slate-200">
+                  <div className="border-b border-slate-200/70 px-4 py-3">
+                    <span className="text-xs font-medium text-[color:var(--muted)]">Search</span>
+                    <input
+                      value={searchQuery}
+                      onChange={(e) => onSearchQueryChange(e.target.value)}
+                      placeholder={totalTasks != null ? `Search ${totalTasks} tasks…` : "Search…"}
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-(--card) px-3 py-2 text-sm text-[color:var(--foreground)] outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-200"
+                    />
+                    {searchQuery.trim().length ? (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs text-[color:var(--muted)]">
+                          {searchCount ? `${activeSearchIndex + 1}/${searchCount}` : ""}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSearchPrev();
+                          }}
+                          disabled={!searchCount}
+                          className="rounded-lg px-2 py-1 text-xs ring-1 ring-slate-200 disabled:opacity-50"
+                        >
+                          Prev
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onSearchNext}
+                          disabled={!searchCount}
+                          className="rounded-lg px-2 py-1 text-xs ring-1 ring-slate-200 disabled:opacity-50"
+                        >
+                          Next
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSearchClear();
+                            setMobileMenuOpen(false);
+                          }}
+                          className="rounded-lg px-2 py-1 text-xs text-red-600 ring-1 ring-red-200"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onToday();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-[color:var(--foreground)] hover:bg-(--card-2)"
+                  >
+                    <TargetIcon className="h-4 w-4 text-blue-600" />
+                    Today
+                  </button>
+                  <div className="border-t border-slate-200/70 px-4 py-2">
+                    <span className="text-xs font-medium text-[color:var(--muted)]">Jump to date</span>
+                    <input
+                      type="date"
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v) {
+                          onJumpToDayKey(v);
+                          setMobileMenuOpen(false);
+                        }
+                      }}
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-(--card) px-3 py-2 text-sm text-[color:var(--foreground)] outline-none"
+                    />
+                  </div>
+                  {authMode === "guest" ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenAuth();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-blue-600 hover:bg-(--card-2)"
+                    >
+                      Login
+                    </button>
+                  ) : authMode === "user" ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenProfile();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-[color:var(--foreground)] hover:bg-(--card-2)"
+                    >
+                      {userAvatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={userAvatarUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
+                      ) : (
+                        <span className="h-6 w-6 rounded-full bg-slate-200" />
+                      )}
+                      {userName || userEmail || "Profile"}
+                    </button>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
     </header>
@@ -1029,7 +1237,7 @@ function VideoCard({ task, onOpenNotes, onPlay }) {
   return (
     <div
       className={cx(
-        "relative flex shrink-0 flex-col overflow-hidden rounded-2xl bg-(--card) shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md",
+        "relative flex shrink-0 flex-col overflow-hidden rounded-2xl bg-(--card) shadow-sm ring-1 ring-slate-200 transition",
         CARD_SIZE_CLASS,
       )}
       onClick={(e) => e.stopPropagation()}
@@ -1095,7 +1303,7 @@ function VideoCard({ task, onOpenNotes, onPlay }) {
                 e.stopPropagation();
                 onOpenNotes();
               }}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-(--card-2) px-2 py-1 text-[color:var(--foreground)] ring-1 ring-slate-200 hover:opacity-90"
+              className="inline-flex cursor-pointer items-center text-[color:var(--foreground)] hover:opacity-90"
               aria-label="Open notes"
             >
               <NoteIcon />
@@ -1114,7 +1322,7 @@ function NoteCard({ task, onOpen }) {
     <button
       type="button"
       className={cx(
-        "flex shrink-0 cursor-pointer flex-col justify-between rounded-2xl bg-(--card) px-3 pb-2.5 pt-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md sm:px-4 sm:pb-3 sm:pt-4",
+        "group flex shrink-0 cursor-pointer flex-col overflow-hidden rounded-2xl bg-(--card) text-left shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-slate-300",
         CARD_SIZE_CLASS,
       )}
       onClick={(e) => {
@@ -1122,16 +1330,20 @@ function NoteCard({ task, onOpen }) {
         onOpen();
       }}
     >
-      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border-l-4 border-blue-500/50 pl-2 sm:pl-3">
-        <div className="line-clamp-3 text-[11px] leading-4.5 text-[color:var(--foreground)] sm:line-clamp-4 sm:text-xs sm:leading-5">
-          {task.notes || "—"}
+      <div className="flex min-h-0 flex-1 flex-col justify-between p-4 sm:p-5">
+        <div className="flex min-h-0 flex-1 items-start gap-3">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <p className="line-clamp-4 text-[12px] leading-relaxed text-[color:var(--foreground)] sm:text-[13px] sm:leading-6">
+              {task.notes || "—"}
+            </p>
+          </div>
         </div>
+        {hasTime ? (
+          <div className="mt-3 shrink-0 rounded-full bg-(--card-2) px-2.5 py-1 text-[10px] font-medium text-[color:var(--muted)] sm:mt-4 sm:text-[11px]">
+            {formatMinutes(task.timeToComplete)}
+          </div>
+        ) : null}
       </div>
-      {hasTime ? (
-        <div className="mt-2 shrink-0 text-[10px] font-medium text-[color:var(--muted)] sm:text-[11px]">
-          {formatMinutes(task.timeToComplete)}
-        </div>
-      ) : null}
     </button>
   );
 }
@@ -1589,7 +1801,7 @@ function AddTaskModal({ open, dayKey, task, onClose, onSaved, onSaveTask }) {
                     type="button"
                     onClick={() => {
                       setTimePreset(active ? null : p.minutes);
-                      setCustomMinutes("");
+                      setCustomHours("");
                     }}
                     className={cx(
                       "cursor-pointer rounded-full px-3 py-2 text-sm font-medium ring-1 transition",
@@ -1828,6 +2040,19 @@ export default function StudyTimeline({ viewAsUserId = null, readOnly = false } 
   const activeSearchTaskId =
     searchMatches.length > 0 ? searchMatches[activeSearchIndex]?.taskId : null;
 
+  const [totalTasks, setTotalTasks] = useState(null);
+  useEffect(() => {
+    if (viewAsUserId) {
+      apiGetTaskCount(viewAsUserId).then((c) => setTotalTasks(c));
+      return;
+    }
+    if (authMode !== "user") {
+      setTotalTasks(null);
+      return;
+    }
+    apiGetTaskCount(null).then((c) => setTotalTasks(c));
+  }, [authMode, viewAsUserId]);
+
   function scrollToTaskId(taskId) {
     if (!taskId) return;
     const el = document.getElementById(`task-${taskId}`);
@@ -2047,13 +2272,12 @@ export default function StudyTimeline({ viewAsUserId = null, readOnly = false } 
         return;
       }
 
-      if (authMode !== "user") {
-        // In guest mode we treat segments as "loaded" to avoid repeated work while scrolling.
-        // In loading mode we do NOT cache, so that a discovered session can fetch immediately.
-        if (authMode === "guest") loadedSegmentsRef.current.add(segKey);
+      if (authMode === "guest") {
+        loadedSegmentsRef.current.add(segKey);
         return;
       }
 
+      // authMode is "user" or "loading": try fetch (when loading, optimistic - user may have session)
       const tasks = await apiGetTasks(startKey, endKeyExclusive, null);
       loadedSegmentsRef.current.add(segKey);
       setTasksByDay((prev) => mergeTasksIntoByDay(prev, tasks));
@@ -2086,6 +2310,8 @@ export default function StudyTimeline({ viewAsUserId = null, readOnly = false } 
           });
       }
     } catch (e) {
+      // Don't show "Unauthorized" during auth bootstrap (user may be guest)
+      if (e?.unauthorized) return;
       setFetchError(e?.message || "Failed to fetch tasks");
     } finally {
       fetchingRef.current = false;
@@ -2341,11 +2567,12 @@ export default function StudyTimeline({ viewAsUserId = null, readOnly = false } 
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         searchCount={searchMatches.length}
+        totalTasks={totalTasks}
         activeSearchIndex={activeSearchIndex}
         onSearchNext={searchNext}
         onSearchPrev={searchPrev}
         onSearchClear={clearSearch}
-        authMode={readOnly ? "admin" : authMode === "user" ? "user" : "guest"}
+        authMode={readOnly ? "admin" : authMode}
         userEmail={user?.email}
         userName={user?.name}
         userAvatarUrl={user?.avatarDataUrl || user?.avatarUrl}
@@ -2368,8 +2595,14 @@ export default function StudyTimeline({ viewAsUserId = null, readOnly = false } 
 
       <div
         ref={scrollerRef}
-        className="custom-scrollbar min-h-0 flex-1 overflow-y-auto"
+        className="custom-scrollbar relative min-h-0 flex-1 overflow-y-auto"
       >
+        {authMode === "loading" && !viewAsUserId ? (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-(--background)/80">
+            <span className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+            <span className="text-sm text-[color:var(--muted)]">Loading…</span>
+          </div>
+        ) : null}
         <div ref={topSentinelRef} className="h-1" />
 
         {fetchError ? (

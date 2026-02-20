@@ -41,9 +41,11 @@ async function getNextOrder(collection, scheduledDate) {
   return (Number.isFinite(Number(maxOrder)) ? Number(maxOrder) : 0) + 1000;
 }
 
+export const dynamic = "force-dynamic";
+
 export async function PATCH(request, { params }) {
   try {
-    const user = await requireUser();
+    const user = await requireUser(request);
     if (!user) return jsonError("Unauthorized", 401);
     const ownerId = new ObjectId(user.userId);
 
@@ -124,20 +126,35 @@ export async function PATCH(request, { params }) {
 
     const collection = await getTasksCollection();
 
-    // If moving to a new date and no order provided, append to end.
+    const existing = await collection.findOne({ _id });
+    if (!existing) return jsonError("Task not found", 404);
+
+    const taskOwnerStr = existing.ownerId?.toString?.() ?? String(existing.ownerId);
+    if (taskOwnerStr !== String(user.userId)) {
+      return jsonError(
+        "You don't have permission to edit this task. Try logging out and back in.",
+        403,
+      );
+    }
+
     if (scheduledDate !== undefined && order === undefined) {
       update.order = await getNextOrder(collection, scheduledDate);
     }
 
-    const res = await collection.findOneAndUpdate(
-      { _id, ownerId },
+    const raw = await collection.findOneAndUpdate(
+      { _id },
       { $set: update },
       { returnDocument: "after" },
     );
-
-    if (!res?.value) return jsonError("Task not found", 404);
-
-    const t = res.value;
+    let t = raw?.value ?? raw;
+    if (!t || !t._id) {
+      t = await collection.findOne({ _id });
+      if (!t) {
+        return jsonError("Failed to update task", 500, {
+          details: "Update succeeded but could not return updated task",
+        });
+      }
+    }
     return NextResponse.json({
       task: {
         ...t,
@@ -153,9 +170,9 @@ export async function PATCH(request, { params }) {
   }
 }
 
-export async function DELETE(_request, { params }) {
+export async function DELETE(request, { params }) {
   try {
-    const user = await requireUser();
+    const user = await requireUser(request);
     if (!user) return jsonError("Unauthorized", 401);
     const ownerId = new ObjectId(user.userId);
 

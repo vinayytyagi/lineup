@@ -3,8 +3,10 @@ import { requireUser } from "@/lib/auth";
 import { ObjectId } from "mongodb";
 import { getUsersCollection } from "@/lib/mongodb";
 
-export async function GET() {
-  const user = await requireUser();
+export const dynamic = "force-dynamic";
+
+export async function GET(request) {
+  const user = await requireUser(request);
   if (!user) return NextResponse.json({ user: null }, { status: 401 });
 
   try {

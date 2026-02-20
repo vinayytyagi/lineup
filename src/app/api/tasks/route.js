@@ -33,9 +33,11 @@ async function getNextOrder(collection, scheduledDate) {
   return (Number.isFinite(Number(maxOrder)) ? Number(maxOrder) : 0) + 1000;
 }
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request) {
   try {
-    const user = await requireUser();
+    const user = await requireUser(request);
     if (!user) return jsonError("Unauthorized", 401);
     const ownerId = new ObjectId(user.userId);
 
@@ -78,7 +80,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const user = await requireUser();
+    const user = await requireUser(request);
     if (!user) return jsonError("Unauthorized", 401);
     const ownerId = new ObjectId(user.userId);
 
