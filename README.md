@@ -12,6 +12,7 @@ Create `.env.local` (you can copy `.env.example`) and set:
 
 - `MONGODB_URI`
 - `MONGODB_DB` (optional, defaults to `lineup`)
+- `YOUTUBE_API_KEY` (optional; required in **production** for video duration – YouTube blocks server requests from ytdl-core. Get a key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) with YouTube Data API v3 enabled.)
 
 First, run the development server:
 

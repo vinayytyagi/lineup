@@ -1,6 +1,19 @@
 import ytdl from "ytdl-core";
 import { formatDurationSeconds } from "./time";
 
+/** Parse YouTube API ISO 8601 duration (PT1H2M10S) to seconds */
+function parseIso8601Duration(iso) {
+  if (typeof iso !== "string" || !iso.startsWith("PT")) return null;
+  let seconds = 0;
+  const matchH = iso.match(/(\d+)H/);
+  const matchM = iso.match(/(\d+)M/);
+  const matchS = iso.match(/(\d+)S/);
+  if (matchH) seconds += parseInt(matchH[1], 10) * 3600;
+  if (matchM) seconds += parseInt(matchM[1], 10) * 60;
+  if (matchS) seconds += parseInt(matchS[1], 10);
+  return seconds > 0 ? seconds : null;
+}
+
 export function extractYouTubeVideoId(videoUrl) {
   try {
     if (!videoUrl) return null;
@@ -86,13 +99,40 @@ export async function fetchYouTubeMetadata(videoUrl) {
       : null;
     if (lengthSeconds) videoDuration = formatDurationSeconds(lengthSeconds);
   } catch {
+    // ytdl often fails in production (YouTube blocks server IPs). Try official YouTube Data API v3.
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (apiKey && !videoDuration) {
+      try {
+        const apiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${encodeURIComponent(
+          videoId,
+        )}&part=snippet,contentDetails&key=${encodeURIComponent(apiKey)}`;
+        const res = await withTimeout(fetch(apiUrl, { cache: "no-store" }), 8000);
+        if (res.ok) {
+          const data = await res.json();
+          const item = data?.items?.[0];
+          if (item) {
+            if (item.snippet?.title) title = item.snippet.title;
+            const thumb = item.snippet?.thumbnails?.maxres?.url ||
+              item.snippet?.thumbnails?.high?.url ||
+              item.snippet?.thumbnails?.medium?.url;
+            if (thumb) thumbnailUrl = thumb;
+            const dur = parseIso8601Duration(item.contentDetails?.duration);
+            if (dur) videoDuration = formatDurationSeconds(dur);
+          }
+        }
+      } catch {
+        // ignore, fall through to oEmbed
+      }
+    }
     // Fall back to oEmbed for at least the title/thumbnail.
-    try {
-      const o = await fetchOEmbed(videoUrl);
-      if (o?.title) title = o.title;
-      if (o?.thumbnail_url) thumbnailUrl = o.thumbnail_url;
-    } catch {
-      // ignore
+    if (!title || !thumbnailUrl) {
+      try {
+        const o = await fetchOEmbed(videoUrl);
+        if (o?.title && !title) title = o.title;
+        if (o?.thumbnail_url && !thumbnailUrl) thumbnailUrl = o.thumbnail_url;
+      } catch {
+        // ignore
+      }
     }
   }
 
