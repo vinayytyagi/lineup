@@ -58,8 +58,13 @@ export async function PATCH(request, { params }) {
     const notes = normalizeOptionalString(body?.notes);
     const order = body?.order === undefined ? undefined : Number(body.order);
 
+    const rawTime = body?.timeToComplete;
     const timeToComplete =
-      body?.timeToComplete === undefined ? undefined : Number(body.timeToComplete);
+      rawTime === undefined
+        ? undefined
+        : rawTime === null
+          ? null
+          : Number(rawTime);
 
     if (scheduledDate !== undefined && !isValidScheduledIso(scheduledDate)) {
       return jsonError(
@@ -71,7 +76,7 @@ export async function PATCH(request, { params }) {
       if (!Number.isInteger(order) || order < 0) return jsonError("Invalid order");
     }
 
-    if (timeToComplete !== undefined) {
+    if (timeToComplete !== undefined && timeToComplete !== null) {
       if (!Number.isInteger(timeToComplete) || timeToComplete <= 0) {
         return jsonError("`timeToComplete` must be a positive integer (minutes)");
       }
