@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getUsersCollection } from "@/lib/mongodb";
-import { setSessionCookie, signSession } from "@/lib/auth";
+import { setAuthCookie, signAuthToken } from "@/lib/auth";
 
 function jsonError(message, status = 400, extra = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
@@ -31,7 +31,7 @@ export async function POST(request) {
     if (!ok) return jsonError("Invalid credentials", 401);
 
     const userId = String(user._id);
-    const token = await signSession({ userId, email });
+    const token = await signAuthToken({ userId, email });
 
     const out = NextResponse.json({
       user: {
@@ -42,8 +42,9 @@ export async function POST(request) {
         avatarDataUrl: user.avatarDataUrl || null,
         role: user.role || "user",
       },
+      token,
     });
-    setSessionCookie(out, token);
+    setAuthCookie(out, token);
     return out;
   } catch (e) {
     return jsonError("Failed to login", 500, { details: e?.message || String(e) });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getUsersCollection } from "@/lib/mongodb";
-import { setSessionCookie, signSession } from "@/lib/auth";
+import { setAuthCookie, signAuthToken } from "@/lib/auth";
 
 function jsonError(message, status = 400, extra = {}) {
   return NextResponse.json({ error: message, ...extra }, { status });
@@ -39,12 +39,13 @@ export async function POST(request) {
     });
 
     const userId = String(res.insertedId);
-    const token = await signSession({ userId, email });
+    const token = await signAuthToken({ userId, email });
 
     const out = NextResponse.json({
       user: { userId, email, name: null, avatarUrl: null, avatarDataUrl: null, role: "user" },
+      token,
     });
-    setSessionCookie(out, token);
+    setAuthCookie(out, token);
     return out;
   } catch (e) {
     // Duplicate key

@@ -20,9 +20,11 @@ function parseObjectId(id) {
   }
 }
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request) {
   try {
-    const user = await requireUser();
+    const user = await requireUser(request);
     if (!user) return jsonError("Unauthorized", 401);
     const ownerId = new ObjectId(user.userId);
 
